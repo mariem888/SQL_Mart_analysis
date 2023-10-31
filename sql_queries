@@ -1,0 +1,243 @@
+-- create a database 
+CREATE DATABASE  martsales;
+
+-- create table
+create table sales(
+  invoice_id VARCHAR(30) NOT NULL PRIMARY KEY,
+    branch VARCHAR(5) NOT NULL,
+    city VARCHAR(30) NOT NULL,
+    customer_type VARCHAR(30) NOT NULL,
+    gender VARCHAR(30) NOT NULL,
+    product_line VARCHAR(100) NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    quantity INT NOT NULL,
+    tax_pct FLOAT(6,4) NOT NULL,
+    total DECIMAL(12, 4) NOT NULL,
+    date DATETIME NOT NULL,
+    time TIME NOT NULL,
+    payment VARCHAR(15) NOT NULL,
+    cogs DECIMAL(10,2) NOT NULL,
+    gross_margin_pct FLOAT(11,9),
+    gross_income DECIMAL(12, 4),
+    rating FLOAT(2, 1)
+);
+
+-- show all columns of dataset:
+select* from martsales;
+
+-- add new columns (time_of_day, day_name, month)
+
+-- first add time_of_day:
+select time,(
+case 
+	when time between '00:00:00' AND '12:00:00' then 'Morning'
+	when time between '12:00:00' and '16:00:00'  then 'Afternoon'
+	else 'Evening'
+	end)
+	As time_of_day from martsales;
+
+alter table martsales  add time_of_day varchar(20);
+
+update martsales
+set time_of_day= ( 
+case 
+	when time between '00:00:00' AND '12:00:00' then 'Morning'
+	when time between '12:00:00' and '16:00:00'  then 'Afternoon'
+	else 'Evening'
+	end);
+
+-- second add day_name column:
+SELECT
+date,
+DATENAME(dw, date) AS day_name
+FROM martsales;
+
+alter table martsales 
+add day_name varchar(20);
+
+update martsales
+set day_name=
+DATENAME(dw, date) 
+FROM martsales;
+
+-- third add month column:
+select date, 
+datename(month,date) as month
+from martsales; 
+
+alter table martsales
+add month varchar(25);
+
+update martsales
+set month= datename(month,date);
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------Answering General Questions---------------------------------------------------------------------------------
+-- How many unique product lines does the data have?
+select count( distinct city) from martsales;
+
+-- In which city is each branch?
+select distinct branch,city from martsales;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------Product question-------------------------------------------------------
+
+--How many unique product lines does the data have?
+select count(distinct product_line) from martsales;
+
+-- What is the most common payment method?
+select payment,
+count (payment) as cnt 
+from martsales
+group by payment
+order by cnt desc;
+
+--What is the most selling product line?
+
+select product_line,
+count(product_line) as product_cnt
+from martsales 
+group by product_line
+order by product_cnt desc;
+
+-- What is the total revenue by month?
+select month,
+sum(total) as revenue from martsales
+group by month
+order by revenue;
+
+--What month had the largest COGS?
+select month from martsales
+where cogs in( select max(cogs) from martsales);
+
+--What product line had the largest revenue?
+select product_line,sum(total) as total_revenue from martsales
+group by product_line
+order by total_revenue;
+
+
+--What is the city with the largest revenue?
+select city, sum(total) as total_revenue from martsales
+group by city
+order by total_revenue desc;
+
+
+--What product line had the largest VAT?
+select product_line, avg (vat) as vat_avg from martsales
+group by product_line
+order by vat_avg desc;
+
+--Fetch each product line and add a column to those product line showing "Good", "Bad". Good if its greater than average sales
+alter table martsales
+add good_bad varchar(20);
+
+UPDATE martsales 
+  SET good_bad = CASE
+                    WHEN quantity > avg_qty THEN 'Good' 
+                    ELSE 'Bad'
+                  END
+FROM martsales m
+JOIN (
+  SELECT product_line, AVG(quantity) avg_qty
+  FROM martsales
+  GROUP BY product_line
+) a ON m.product_line = a.product_line;
+
+--Which branch sold more products than average product sold?
+select branch, sum(quantity) as sq
+from martsales
+group by branch 
+having sum(quantity)> (select avg(quantity) from martsales);
+
+--What is the most common product line by gender?
+select product_line,gender, count(gender) as gen_num from martsales
+group by gender,product_line
+order by gen_num desc;
+
+--What is the average rating of each product line?
+select product_line,
+round (avg(rating),2) as rate_avg from martsales 
+group by product_line;
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------sales questions-----------------------------------------------------------
+
+--Number of sales made in each time of the day per weekday?
+select time_of_day, count(*) as total_sales
+from martsales 
+where day_name='monday'
+group by time_of_day;
+
+--Which of the customer types brings the most revenue?
+select customer_type, sum(total) as total_cnt
+from martsales 
+group by customer_type;
+
+--Which city has the largest tax percent/ VAT (Value Added Tax)?
+select city, avg(vat) as vat_avg
+from martsales
+group by city
+order by vat_avg desc;
+
+--Which customer type pays the most in VAT?
+select customer_type, avg(vat) as vat_m
+from martsales 
+group by customer_type;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------customer questions---------------------------------------------------------------------------------------
+--How many unique customer types does the data have?
+select count(distinct customer_type)
+from martsales;
+
+--How many unique payment methods does the data have?
+select count(distinct payment)
+from martsales;
+
+--What is the most common customer type?
+select count(customer_type) from martsales;
+
+--Which customer type buys the most?
+select customer_type, count(customer_type) as customer_cnt from martsales
+group by customer_type;
+
+--What is the gender of most of the customers?
+select gender, count(gender) as gn_cnt from martsales 
+group by gender;
+
+--What is the gender distribution per branch?
+select branch,gender ,count(gender) as gn_cnt from martsales
+group by branch,gender;
+
+--Which time of the day do customers give most ratings?
+select time_of_day, sum(rating) as rat_cnt
+from martsales
+group by time_of_day
+order by rat_cnt desc;
+
+--Which time of the day do customers give most ratings per branch?
+select time_of_day,branch, count(rating) as rat_cnt
+from martsales
+group by time_of_day,branch
+order by rat_cnt desc;
+
+
+--Which day fo the week has the best avg ratings?
+select day_name, avg(rating) as rat_avg
+from martsales
+group by day_name
+order by rat_avg desc;
+
+--Which day of the week has the best average ratings per branch?
+select day_name,branch, avg(rating) as rat_avg
+from martsales
+group by day_name,branch
+order by rat_avg desc;
+
+
+
+
+
+
+
+
+
